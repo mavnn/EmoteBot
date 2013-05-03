@@ -14,6 +14,7 @@ namespace EmoteBot
         private static string userName;
         private static readonly Random Random = new Random();
         private static WeatherCommand Weather;
+        private static OctopusCommand Octopus;
 
         private static readonly string[] Responses = new[]
             {
@@ -38,16 +39,33 @@ namespace EmoteBot
             room = new Jid(cfg.RoomJid);
             hasMention = new Regex(string.Format(".*@{0}.*", nickname));
             Weather = new WeatherCommand(cfg);
+            Octopus = new OctopusCommand(cfg);
             client = new XmppClientConnection(cfg.Server);
             client.Open(cfg.UserJid, cfg.Password);
             client.OnLogin += OnLogin;
 
-            AsyncMain().Wait();
+            Task.WaitAll(MainEmotes(), OctopusHandling());
             Console.WriteLine("Shutting down");
             Console.ReadLine();
         }
+        
+        private static async Task OctopusHandling()
+        {
+            var messages = Observable.FromEventPattern<MessageHandler, Message>(h => client.OnMessage += h,
+                                                                                h => client.OnMessage -= h)
+                                     .SkipUntil(DateTimeOffset.Now.AddSeconds(4))
+                                     .Where(e => e.EventArgs.Type == MessageType.groupchat)
+                                     .Where(e => Octopus.IsOctopusCommand(e.EventArgs.Body));
+            while (true)
+            {
+                var message = await messages.Take(1);
+                Console.WriteLine("Someone tried a deploy!");
+                var deployResult = await Octopus.Deploy(message.EventArgs.Body);
+                client.Send(new Message(room, MessageType.groupchat, deployResult));
+            }
+        }
 
-        private static async Task AsyncMain()
+        private static async Task MainEmotes()
         {
             var messages = Observable.FromEventPattern<MessageHandler, Message>(h => client.OnMessage += h,
                                                                                 h => client.OnMessage -= h)
@@ -55,7 +73,6 @@ namespace EmoteBot
                                      .Where(e => e.EventArgs.Type == MessageType.groupchat)
                                      .Where(e => HasMention(e.EventArgs))
                                      .Throttle(TimeSpan.FromSeconds(5));
-
             while (true)
             {
                 var message = await messages.Take(1);

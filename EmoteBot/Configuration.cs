@@ -13,6 +13,8 @@ namespace EmoteBot
         public string RoomJid;
         public string UserName;
         public string WeatherApiKey;
+        public string OctopusUser;
+        public string OctopusApiKey;
 
         public Configuration()
         {
@@ -43,6 +45,10 @@ namespace EmoteBot
                     RoomJid = file.ReadLine();
                     UserName = file.ReadLine();
                     WeatherApiKey = file.ReadLine();
+                    file.ReadLine();
+                    file.ReadLine();
+                    OctopusUser = file.ReadLine();
+                    OctopusApiKey = file.ReadLine();
                 }
             }
             else
